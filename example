@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+const prog = require('.')
+
+prog
+  .version('0.0.1')
+  .parse(process.argv)

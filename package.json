@@ -1,0 +1,38 @@
+{
+  "name": "light-cmd",
+  "version": "0.0.0",
+  "description": "Light command line for Node.js.",
+  "license": "MIT",
+  "repository": "ZYSzys/light-cmd",
+  "author": {
+    "name": "ZYSzys",
+    "email": "17367077526@163.com",
+    "url": "zyszys.top"
+  },
+  "engines": {
+    "node": ">=6"
+  },
+  "scripts": {
+    "test": "npm run lint && nyc ava && ./example -v",
+    "lint": "standard"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    ""
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "ava": "0.25.0",
+    "codecov": "3.0.0",
+    "nyc": "12.0.0",
+    "standard": "*"
+  },
+  "nyc": {
+    "reporter": [
+      "lcov",
+      "text"
+    ]
+  }
+}
