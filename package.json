@@ -32,7 +32,7 @@
   "devDependencies": {
     "ava": "0.25.0",
     "codecov": "3.0.0",
-    "nyc": "12.0.0",
+    "nyc": "12.0.2",
     "standard": "*",
     "webpack": "4.19.1",
     "webpack-cli": "3.1.0"
