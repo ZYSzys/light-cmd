@@ -41,5 +41,10 @@
       "lcov",
       "text"
     ]
+  },
+  "standard": {
+    "ignore": [
+      "/dist/"
+    ]
   }
 }
