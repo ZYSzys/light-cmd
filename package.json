@@ -14,7 +14,7 @@
   },
   "scripts": {
     "test": "npm run lint && nyc ava && ./example -v",
-    "lint": "standard"
+    "lint": "standard --fix"
   },
   "files": [
     "index.js"
