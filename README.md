@@ -20,10 +20,12 @@ $ npm install light-cmd
 ## Usage
 
 ```js
-const lightCmd = require('light-cmd');
+const lightCmd = require('light-cmd')
 
-lightCmd('unicorns');
-//=> 'unicorns & rainbows'
+lightCmd
+  .version('0.0.1')
+  .parse(process.argv)
+
 ```
 
 

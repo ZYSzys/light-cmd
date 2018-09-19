@@ -9,112 +9,95 @@ inherits(LightCMD, EventEmitter)
 function LightCMD (name) {
   this.commands = []
   this.options = []
-  this._execs = {}
-  this._allowUnknownOption = false
-  this._args = []
-  this._name = name || ''
+  this.args = []
+  this.name = name || ''
 }
 
-LightCMD.prototype.version = function (str, flags) {
-  if (arguments.length === 0) return this._version
-  this._version = str
-  flags = flags || '-v, --version'
-  var versionOption = new Option(flags, 'output the version number')
-  this._versionOptionName = versionOption.long.substr(2) || 'version'
-  this.options.push(versionOption)
-  this.on('option:' + this._versionOptionName, function () {
-    process.stdout.write(str + '\n')
-    process.exit(0)
+LightCMD.prototype.command = function (name) {
+  const args = name.split(/ +/)
+  const cmd = new LightCMD(args.shift())
+  this.commands.push(cmd)
+
+  cmd.arg(args)
+  cmd.parent = this
+  return cmd
+}
+
+LightCMD.prototype.arg = function (args) {
+  if (!args.length) {
+    return
+  }
+
+  const self = this
+  args.forEach(arg => {
+    switch (arg[0]) {
+      case '<':
+        self.args.push({ required: true, name: arg.slice(1, -1) })
+        break
+      case '[':
+        self.args.push({ required: false, name: arg.slice(1, -1) })
+        break
+    }
   })
   return this
 }
 
-LightCMD.prototype.parse = function (argv) {
-  // implicit help
-  if (this.executables) this.addImplicitHelpCommand()
+LightCMD.prototype.action = function (fn) {
+  const self = this
+  this.parent.on(this.name, function (args) {
+    self.args.forEach((arg, i) => {
+      if (args[i] === null) {
+        self.missingArgument(arg.name)
+      }
+    })
+    fn.apply(this, args)
+  })
+  return this
+}
 
-  // store raw args
+LightCMD.prototype.option = function (flags, desc, fn) {
+  const self = this
+  const option = new Option(flags, desc)
+  const name = option.name
+
+  this.options.push(option)
+  this.on(name, val => {
+    if (val !== null && fn) {
+      val = fn(val)
+    }
+    self[name] = val === null ? option.bool : val
+  })
+
+  return this
+}
+
+LightCMD.prototype.parse = function (argv) {
   this.rawArgs = argv
 
-  // guess name
-  this._name = this._name || basename(argv[1], '.js')
-
-  // github-style sub-commands with no sub-command
-  if (this.executables && argv.length < 3 && !this.defaultExecutable) {
-    // this user needs help
-    argv.push('--help')
+  if (!this.name) {
+    this.name = basename(argv[1])
   }
 
-  // process argv
-  var parsed = this.parseOptions(this.normalize(argv.slice(2)))
-  var args = this.args = parsed.args
+  this.option('-h, --help', 'output usage information')
+  this.on('help', () => {
+    process.stdout.write(this.helpInformation())
+    process.exit(0)
+  })
 
-  var result = this.parseArgs(this.args, parsed.unknown)
-
-  // executable sub-commands
-  var name = result.args[0]
-
-  var aliasCommand = null
-  // check alias of sub commands
-  if (name) {
-    aliasCommand = this.commands.filter(function (command) {
-      return command.alias() === name
-    })[0]
-  }
-
-  if (this._execs[name] && typeof this._execs[name] !== 'function') {
-    return this.executeSubCommand(argv, args, parsed.unknown)
-  } else if (aliasCommand) {
-    // is alias of a subCommand
-    args[0] = aliasCommand._name
-    return this.executeSubCommand(argv, args, parsed.unknown)
-  } else if (this.defaultExecutable) {
-    // use the default subcommand
-    args.unshift(this.defaultExecutable)
-    return this.executeSubCommand(argv, args, parsed.unknown)
-  }
-
-  return result
+  return this.parseArgs(this.parseOptions(argv))
 }
 
-LightCMD.prototype.addImplicitHelpCommand = function () {
-  this.command('help [cmd]', 'display help for [cmd]')
-}
-
-LightCMD.prototype.normalize = function (args) {
-  var ret = []
-  var arg
-  var lastOpt
-  var index
-
-  for (var i = 0, len = args.length; i < len; ++i) {
-    arg = args[i]
-    if (i > 0) {
-      lastOpt = this.optionFor(args[i - 1])
-    }
-
-    if (arg === '--') {
-      // Honor option terminator
-      ret = ret.concat(args.slice(i))
-      break
-    } else if (lastOpt && lastOpt.required) {
-      ret.push(arg)
-    } else if (arg.length > 1 && arg[0] === '-' && arg[1] !== '-') {
-      arg.slice(1).split('').forEach(function (c) {
-        ret.push('-' + c)
-      })
-    } else if (/^--/.test(arg) && ~(index = arg.indexOf('='))) {
-      ret.push(arg.slice(0, index), arg.slice(index + 1))
-    } else {
-      ret.push(arg)
-    }
+LightCMD.prototype.parseArgs = function (args) {
+  if (args.length) {
+    this.emit('*', args)
+    this.emit(args.shift(), args)
   }
 
-  return ret
+  return this
 }
 
 LightCMD.prototype.optionFor = function (arg) {
-  for (var i = 0, len = this.options.length; i < len; ++i) {
+  for (let i = 0; i < this.options.length; i++) {
     if (this.options[i].is(arg)) {
       return this.options[i]
     }
@@ -123,29 +106,18 @@ LightCMD.prototype.optionFor = function (arg) {
 
 LightCMD.prototype.parseOptions = function (argv) {
   var args = []
-  var len = argv.length
-  var literal
-  var option
-  var arg
 
-  var unknownOptions = []
+  argv = argv.slice(2)
+
+  var len = argv.length
+
+  var option
+
+  var arg
 
   // parse options
   for (var i = 0; i < len; ++i) {
     arg = argv[i]
-
-    // literal args after --
-    if (literal) {
-      args.push(arg)
-      continue
-    }
-
-    if (arg === '--') {
-      literal = true
-      continue
-    }
-
-    // find matching Option
     option = this.optionFor(arg)
 
     // option is defined
@@ -153,119 +125,131 @@ LightCMD.prototype.parseOptions = function (argv) {
       // requires arg
       if (option.required) {
         arg = argv[++i]
-        if (arg == null) return this.optionMissingArgument(option)
-        this.emit('option:' + option.name(), arg)
+        if (arg === null) return this.optionMissingArgument(option)
+        if (arg[0] === '-') return this.optionMissingArgument(option, arg)
+        this.emit(option.name(), arg)
       // optional arg
       } else if (option.optional) {
-        arg = argv[i + 1]
-        if (arg == null || (arg[0] === '-' && arg !== '-')) {
+        if (arg === null || arg[0] === '-') {
           arg = null
         } else {
           ++i
         }
-        this.emit('option:' + option.name(), arg)
-      // bool
+        this.emit(option.name(), arg)
       } else {
-        this.emit('option:' + option.name())
+        this.emit(option.name())
       }
       continue
     }
 
     // looks like an option
     if (arg.length > 1 && arg[0] === '-') {
-      unknownOptions.push(arg)
-
-      // If the next argument looks like it might be
-      // an argument for this option, we pass it on.
-      // If it isn't, then it'll simply be ignored
-      if ((i + 1) < argv.length && argv[i + 1][0] !== '-') {
-        unknownOptions.push(argv[++i])
-      }
-      continue
+      this.unknownOption(arg)
     }
 
     // arg
     args.push(arg)
   }
 
-  return { args: args, unknown: unknownOptions }
+  return args
 }
 
-LightCMD.prototype.command = function (name, desc, opts) {
-  if (typeof desc === 'object' && desc !== null) {
-    opts = desc
-    desc = null
-  }
-  opts = opts || {}
-  var args = name.split(/ +/)
-  var cmd = new LightCMD(args.shift())
-
-  if (desc) {
-    cmd.description(desc)
-    this.executables = true
-    this._execs[cmd._name] = true
-    if (opts.isDefault) this.defaultExecutable = cmd._name
-  }
-  cmd._noHelp = !!opts.noHelp
-  this.commands.push(cmd)
-  cmd.parseExpectedArgs(args)
-  cmd.parent = this
-
-  if (desc) return this
-  return cmd
+LightCMD.prototype.missingArgument = function (name) {
+  console.error()
+  console.error("  error: missing required argument `%s'", name)
+  console.error()
+  process.exit(1)
 }
 
-LightCMD.prototype.parseArgs = function (args, unknown) {
-  var name
-
-  if (args.length) {
-    name = args[0]
-    if (this.listeners('command:' + name).length) {
-      this.emit('command:' + args.shift(), args, unknown)
-    } else {
-      this.emit('command:*', args)
-    }
+LightCMD.prototype.optionMissingArgument = function (option, got) {
+  console.error()
+  if (got) {
+    console.error("  error: option `%s' argument missing, got `%s'", option.flags, got)
   } else {
-    // outputHelpIfNecessary(this, unknown)
-
-    // If there were no args and we have unknown options,
-    // then they are extraneous and we need to error.
-    if (unknown.length > 0) {
-      this.unknownOption(unknown[0])
-    }
-    if (this.commands.length === 0 &&
-        this._args.filter(function (a) { return a.required }).length === 0) {
-      this.emit('command:*')
-    }
+    console.error("  error: option `%s' argument missing", option.flags)
   }
-
-  return this
+  console.error()
+  process.exit(1)
 }
 
-LightCMD.prototype.parseExpectedArgs = function (args) {
-  if (!args.length) return
-  var self = this
-  args.forEach(function (arg) {
-    var argDetails = {
-      required: false,
-      name: '',
-      variadic: false
-    }
+LightCMD.prototype.unknownOption = function (flag) {
+  console.error()
+  console.error("  error: unknown option `%s'", flag)
+  console.error()
+  process.exit(1)
+}
 
-    if (arg[0] === '<') {
-      argDetails.required = true
-    }
-    argDetails.name = arg.slice(1, -1)
-
-    if (argDetails.name.length > 3 && argDetails.name.slice(-3) === '...') {
-      argDetails.variadic = true
-      argDetails.name = argDetails.name.slice(0, -3)
-    }
-    if (argDetails.name) {
-      self._args.push(argDetails)
-    }
+LightCMD.prototype.version = function (str) {
+  if (arguments.length === 0) return this._version
+  this._version = str
+  this.option('-v, --version', 'output the version number')
+  this.on('version', function () {
+    console.log(str)
+    process.exit(0)
   })
   return this
+}
+
+LightCMD.prototype.description = function (str) {
+  if (arguments.length === 0) return this._description
+  this._description = str
+  return this
+}
+
+LightCMD.prototype.usage = function (str) {
+  if (arguments.length === 0) return this._usage || '[options]'
+  this._usage = str
+  return this
+}
+
+LightCMD.prototype.largestOptionLength = function () {
+  return this.options.reduce(function (max, option) {
+    return Math.max(max, option.flags.length)
+  }, 0)
+}
+
+LightCMD.prototype.optionHelp = function () {
+  var width = this.largestOptionLength()
+  return this.options.map(function (option) {
+    return pad(option.flags, width) +
+      '  ' + option.description
+  }).join('\n')
+}
+
+LightCMD.prototype.commandHelp = function () {
+  if (!this.commands.length) return ''
+  return [
+    '',
+    '  Commands:',
+    '',
+    this.commands.map(function (cmd) {
+      var args = cmd.args.map(function (arg) {
+        return arg.required
+          ? '<' + arg.name + '>'
+          : '[' + arg.name + ']'
+      }).join(' ')
+      return cmd.name + ' ' + args + '\n' + cmd.description()
+    }).join('\n\n').replace(/^/gm, '    '),
+    ''
+  ].join('\n')
+}
+
+LightCMD.prototype.helpInformation = function () {
+  return [
+    '',
+    '  Usage: ' + this.name + ' ' + this.usage(),
+    '' + this.commandHelp(),
+    '  Options:',
+    '',
+    '' + this.optionHelp().replace(/^/gm, '    '),
+    '',
+    ''
+  ].join('\n')
+}
+
+function pad (str, width) {
+  var len = Math.max(0, width - str.length)
+  return str + Array(len + 1).join(' ')
 }
 
 module.exports = LightCMD
