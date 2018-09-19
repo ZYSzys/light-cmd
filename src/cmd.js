@@ -105,7 +105,7 @@ LightCMD.prototype.optionFor = function (arg) {
 }
 
 LightCMD.prototype.parseOptions = function (argv) {
-  var args = []
+  const args = []
 
   argv = argv.slice(2)
 
