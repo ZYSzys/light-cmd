@@ -1,6 +1,6 @@
 {
   "name": "light-cmd",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Light command line for Node.js.",
   "license": "MIT",
   "repository": "ZYSzys/light-cmd",
