@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+
+const cmd = require('..')
+
+cmd
+  .version('0.0.1')
+  .option('-a, --age', 'show the age', () => console.log('Age: 20'))
+  .option('-na, --name', 'show the name', () => console.log('Name: ZYSzys'))
+  .option('-ip, --local-ip', 'show the ip', () => console.log('IP: 0.0.0.0'))
+
+cmd.parse(process.argv)

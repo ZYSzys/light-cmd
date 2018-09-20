@@ -20,10 +20,13 @@ $ npm install light-cmd
 ## Usage
 
 ```js
-const lightCmd = require('light-cmd')
+const cmd = require('light-cmd')
 
-lightCmd
+cmd
   .version('0.0.1')
+  .option('-a, --age', 'show the age', () => console.log('Age: 100'))
+
+cmd
   .parse(process.argv)
 
 ```
@@ -31,24 +34,48 @@ lightCmd
 
 ## API
 
-### lightCmd(input, [options])
+See [examples](/examples/) for how to using.
+
+### cmd.version(input)
 
 #### input
 
 Type: `string`
 
-Lorem ipsum.
+The semver version.
 
-#### options
+### cmd.option(flags, descrition, fn)
 
-Type: `Object`
+#### flags
 
-##### foo
+Type: `string`
 
-Type: `boolean`<br>
-Default: `false`
+#### descrition
 
-Lorem ipsum.
+Type: `string`
+
+#### fn
+
+Type: `function`
+
+### cmd.command(flags)
+
+#### flags
+
+Type: `string`
+
+### cmd.action(fn)
+
+#### fn
+
+Type: `function`
+
+### cmd.parse(argv)
+
+#### argv
+
+Type: `Array`
+Usually using `process.argv`
 
 
 ## License

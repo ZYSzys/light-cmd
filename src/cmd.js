@@ -5,7 +5,7 @@ const Option = require('./option')
 const { pad, isNullOrUndefined } = require('./util')
 
 class LightCMD extends EventEmitter {
-  constructor (name) {
+  constructor(name) {
     super()
     this.commands = []
     this.options = []
@@ -14,13 +14,13 @@ class LightCMD extends EventEmitter {
 
     // default options
     this.option('-h, --help', 'output usage information')
-    this.on('help', function () {
+    this.on('help', function() {
       process.stdout.write(this.helpInformation())
       process.exit(0)
     })
   }
 
-  command (name) {
+  command(name) {
     const args = name.split(/ +/)
     const cmd = new LightCMD(args.shift())
     this.commands.push(cmd)
@@ -29,7 +29,7 @@ class LightCMD extends EventEmitter {
     return cmd
   }
 
-  arg (args) {
+  arg(args) {
     if (!args.length) return
     args.forEach((arg) => {
       const curr = { name: arg.slice(1, -1) }
@@ -43,7 +43,7 @@ class LightCMD extends EventEmitter {
     return this
   }
 
-  action (fn) {
+  action(fn) {
     this.parent.on(this.name, (args) => {
       this.args.forEach((arg, i) => {
         if (isNullOrUndefined(args[i])) {
@@ -55,7 +55,7 @@ class LightCMD extends EventEmitter {
     return this
   }
 
-  option (flags, desc, fn) {
+  option(flags, desc, fn) {
     const option = new Option(flags, desc)
     const name = option.name()
 
@@ -73,7 +73,7 @@ class LightCMD extends EventEmitter {
     return this
   }
 
-  parse (argv) {
+  parse(argv) {
     // store raw args
     this.rawArgs = argv
 
@@ -84,7 +84,7 @@ class LightCMD extends EventEmitter {
     return this.parseArgs(this.parseOptions(argv))
   }
 
-  parseArgs (args) {
+  parseArgs(args) {
     if (args.length) {
       this.emit('*', args)
       this.emit(args.shift(), args)
@@ -92,7 +92,7 @@ class LightCMD extends EventEmitter {
     return this
   }
 
-  optionFor (arg) {
+  optionFor(arg) {
     for (let i = 0; i < this.options.length; i++) {
       if (this.options[i].is(arg)) {
         return this.options[i]
@@ -100,7 +100,7 @@ class LightCMD extends EventEmitter {
     }
   }
 
-  parseOptions (argv) {
+  parseOptions(argv) {
     const args = []
     argv = argv.slice(2)
 
@@ -145,57 +145,57 @@ class LightCMD extends EventEmitter {
     return args
   }
 
-  missingArgument (name) {
+  missingArgument(name) {
     console.error(`
     error: missing required argument '${name}'
   `)
     process.exit(1)
   }
 
-  optionMissingArgument (option, got) {
+  optionMissingArgument(option, got) {
     console.error(`
     error: option '${option.flags}' argument missing
   `)
     process.exit(1)
   }
 
-  unknownOption (flag) {
+  unknownOption(flag) {
     console.error(`
     error: unknown option '${flag}'
   `)
     process.exit(1)
   }
 
-  version (str) {
+  version(str) {
     if (arguments.length === 0) return this._version
     this._version = str
     this.option('-v, --version', 'output the version number')
-    this.on('version', function () {
+    this.on('version', function() {
       console.log(str)
       process.exit(0)
     })
     return this
   }
 
-  description (str) {
+  description(str) {
     if (!arguments.length) return this._description
     this._description = str
     return this
   }
 
-  usage (str) {
+  usage(str) {
     if (!arguments.length) return this._usage || '[options]'
     this._usage = str
     return this
   }
 
-  largestOptionLength () {
+  largestOptionLength() {
     return this.options.reduce((max, option) => {
       return Math.max(max, option.flags.length)
     }, 0)
   }
 
-  optionHelp () {
+  optionHelp() {
     const width = this.largestOptionLength()
     return this.options.map((option) => {
       return pad(option.flags, width) +
@@ -203,26 +203,26 @@ class LightCMD extends EventEmitter {
     }).join('\n')
   }
 
-  commandHelp () {
+  commandHelp() {
     if (!this.commands.length) return ''
     return `
   Commands:\n\n` +
       this.commands.map((cmd) => {
         const args = cmd.args.map((arg) => {
-          return arg.required
-            ? '<' + arg.name + '>'
-            : '[' + arg.name + ']'
+          return arg.required ?
+            '<' + arg.name + '>' :
+            '[' + arg.name + ']'
         }).join(' ')
         return cmd.name + ' ' + args + '\t' + cmd.description() + '\n'
-      }).join('\n\n').replace(/^/gm, '    ')
+      }).join('').replace(/^/gm, '    ')
   }
 
-  helpInformation () {
+  helpInformation() {
     return `
   Usage: ${this.name} ${this.usage()}
   ${this.commandHelp()}
   Options:\n\n` +
-      `${this.optionHelp().replace(/^/gm, '    ')}
+    `${this.optionHelp().replace(/^/gm, '    ')}
 
 `
   }

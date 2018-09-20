@@ -1,0 +1,18 @@
+#!/usr/bin/env node
+
+const cmd = require('..')
+
+cmd
+  .command('init <name>')
+  .description('init repository')
+  .action((name) => {
+    console.log(`Repository name is ${name}`)
+  })
+
+cmd
+  .command('dev [path]')
+  .action((path) => {
+    console.log(path)
+  })
+
+cmd.parse(process.argv)
