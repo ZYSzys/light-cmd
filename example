@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-const prog = require('.')
+const cmd = require('.')
 
-prog
+cmd
   .version('0.0.1')
-  .option('-a, --age', 'show the age', () => console.log('His age is 20'))
+  .option('-n, --name', 'show the name', () => console.log('His name is ZYSzys.'))
+  .option('-a, --age-now', 'show the age', () => console.log('His age is 20.'))
 
-prog
+cmd
   .command('init [hello]')
   .description('init repo')
-  .action(function(hello){
-    console.log(`init ${hello} okkkkkk ! !`);
+  .action(function (hello) {
+    console.log(`init ${hello} okkkkkk ! !`)
   })
+console.log(process.argv)
+cmd.parse(process.argv)
 
-prog.parse(process.argv)
 
-console.log(prog)
