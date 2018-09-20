@@ -4,32 +4,28 @@ const { inherits } = require('util')
 
 const Option = require('./option')
 
-inherits(LightCMD, EventEmitter)
-
 function LightCMD (name) {
   this.commands = []
   this.options = []
   this.args = []
-  this.name = name || ''
+  this.name = name
 }
+
+inherits(LightCMD, EventEmitter)
 
 LightCMD.prototype.command = function (name) {
   const args = name.split(/ +/)
   const cmd = new LightCMD(args.shift())
   this.commands.push(cmd)
-
   cmd.arg(args)
   cmd.parent = this
   return cmd
 }
 
 LightCMD.prototype.arg = function (args) {
-  if (!args.length) {
-    return
-  }
-
-  const self = this
-  args.forEach(arg => {
+  if (!args.length) return
+  var self = this
+  args.forEach(function (arg) {
     switch (arg[0]) {
       case '<':
         self.args.push({ required: true, name: arg.slice(1, -1) })
@@ -43,10 +39,10 @@ LightCMD.prototype.arg = function (args) {
 }
 
 LightCMD.prototype.action = function (fn) {
-  const self = this
+  var self = this
   this.parent.on(this.name, function (args) {
-    self.args.forEach((arg, i) => {
-      if (args[i] === null) {
+    self.args.forEach(function (arg, i) {
+      if (args[i] === null || args[i] === undefined) {
         self.missingArgument(arg.name)
       }
     })
@@ -58,32 +54,39 @@ LightCMD.prototype.action = function (fn) {
 LightCMD.prototype.option = function (flags, desc, fn) {
   const self = this
   const option = new Option(flags, desc)
-  const name = option.name
+  const name = option.name()
 
   this.options.push(option)
-  this.on(name, val => {
-    if (val !== null && fn) {
-      val = fn(val)
+  this.on(name, function (val) {
+    // coercion
+    if (fn) {
+      fn(val)
     }
-    self[name] = val === null ? option.bool : val
+
+    // assign value
+    self[name] = val == null
+      ? option.description
+      : val
   })
 
   return this
 }
 
 LightCMD.prototype.parse = function (argv) {
+  // store raw args
   this.rawArgs = argv
 
-  if (!this.name) {
-    this.name = basename(argv[1])
-  }
+  // guess name
+  if (!this.name) this.name = basename(argv[1])
 
+  // default options
   this.option('-h, --help', 'output usage information')
-  this.on('help', () => {
+  this.on('help', function () {
     process.stdout.write(this.helpInformation())
     process.exit(0)
   })
 
+  // process argv
   return this.parseArgs(this.parseOptions(argv))
 }
 
@@ -92,7 +95,6 @@ LightCMD.prototype.parseArgs = function (args) {
     this.emit('*', args)
     this.emit(args.shift(), args)
   }
-
   return this
 }
 
@@ -106,31 +108,26 @@ LightCMD.prototype.optionFor = function (arg) {
 
 LightCMD.prototype.parseOptions = function (argv) {
   const args = []
-
   argv = argv.slice(2)
 
-  var len = argv.length
-
-  var option
-
-  var arg
+  const len = argv.length
 
   // parse options
-  for (var i = 0; i < len; ++i) {
-    arg = argv[i]
-    option = this.optionFor(arg)
+  for (let i = 0; i < len; ++i) {
+    let arg = argv[i]
+    const option = this.optionFor(arg)
 
     // option is defined
     if (option) {
       // requires arg
       if (option.required) {
         arg = argv[++i]
-        if (arg === null) return this.optionMissingArgument(option)
+        if (arg === null || arg === undefined) return this.optionMissingArgument(option)
         if (arg[0] === '-') return this.optionMissingArgument(option, arg)
         this.emit(option.name(), arg)
-      // optional arg
+        // optional arg
       } else if (option.optional) {
-        if (arg === null || arg[0] === '-') {
+        if (arg === undefined || arg === null || arg[0] === '-') {
           arg = null
         } else {
           ++i
@@ -155,27 +152,23 @@ LightCMD.prototype.parseOptions = function (argv) {
 }
 
 LightCMD.prototype.missingArgument = function (name) {
-  console.error()
-  console.error("  error: missing required argument `%s'", name)
-  console.error()
+  console.error(`
+    error: missing required argument '${name}'
+  `)
   process.exit(1)
 }
 
 LightCMD.prototype.optionMissingArgument = function (option, got) {
-  console.error()
-  if (got) {
-    console.error("  error: option `%s' argument missing, got `%s'", option.flags, got)
-  } else {
-    console.error("  error: option `%s' argument missing", option.flags)
-  }
-  console.error()
+  console.error(`
+    error: option '${option.flags}' argument missing
+  `)
   process.exit(1)
 }
 
 LightCMD.prototype.unknownOption = function (flag) {
-  console.error()
-  console.error("  error: unknown option `%s'", flag)
-  console.error()
+  console.error(`
+    error: unknown option '${flag}'
+  `)
   process.exit(1)
 }
 
@@ -218,33 +211,26 @@ LightCMD.prototype.optionHelp = function () {
 
 LightCMD.prototype.commandHelp = function () {
   if (!this.commands.length) return ''
-  return [
-    '',
-    '  Commands:',
-    '',
+  return `
+  Commands:\n\n` +
     this.commands.map(function (cmd) {
       var args = cmd.args.map(function (arg) {
         return arg.required
           ? '<' + arg.name + '>'
           : '[' + arg.name + ']'
       }).join(' ')
-      return cmd.name + ' ' + args + '\n' + cmd.description()
-    }).join('\n\n').replace(/^/gm, '    '),
-    ''
-  ].join('\n')
+      return cmd.name + ' ' + args + '\t' + cmd.description() + '\n'
+    }).join('\n\n').replace(/^/gm, '    ')
 }
 
 LightCMD.prototype.helpInformation = function () {
-  return [
-    '',
-    '  Usage: ' + this.name + ' ' + this.usage(),
-    '' + this.commandHelp(),
-    '  Options:',
-    '',
-    '' + this.optionHelp().replace(/^/gm, '    '),
-    '',
-    ''
-  ].join('\n')
+  return `
+  Usage: ${this.name} ${this.usage()}
+  ${this.commandHelp()}
+  Options:\n\n` +
+    `${this.optionHelp().replace(/^/gm, '    ')}
+
+`
 }
 
 function pad (str, width) {

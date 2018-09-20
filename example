@@ -3,4 +3,15 @@ const prog = require('.')
 
 prog
   .version('0.0.1')
-  .parse(process.argv)
+  .option('-a, --age', 'show the age', () => console.log('His age is 20'))
+
+prog
+  .command('init [hello]')
+  .description('init repo')
+  .action(function(hello){
+    console.log(`init ${hello} okkkkkk ! !`);
+  })
+
+prog.parse(process.argv)
+
+console.log(prog)
