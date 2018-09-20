@@ -7,7 +7,7 @@
  */
 
 class Option {
-  constructor(flags, description) {
+  constructor (flags, description) {
     this.flags = flags
     this.required = flags.indexOf('<') >= 0
     this.optional = flags.indexOf('[') >= 0
@@ -24,7 +24,7 @@ class Option {
    * @api private
    */
 
-  name() {
+  name () {
     return this.long.slice(2)
   }
 
@@ -36,7 +36,7 @@ class Option {
    * @api private
    */
 
-  attributeName() {
+  attributeName () {
     return camelcase(this.name())
   }
 
@@ -48,7 +48,7 @@ class Option {
    * @api private
    */
 
-  is(arg) {
+  is (arg) {
     return this.short === arg || this.long === arg
   }
 }
